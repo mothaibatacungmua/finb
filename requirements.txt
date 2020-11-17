@@ -1,0 +1,14 @@
+selenium==3.141.0
+unidecode
+beautifulsoup4==4.9.1
+chart-studio==1.1.0
+cvxopt==1.2.5
+dash==1.17.0
+dash-bootstrap-components==0.10.7
+dash-core-components==1.13.0
+dash-html-components==1.1.1
+dash-renderer==1.8.3
+numpy==1.19.1
+python-dateutil==2.8.1
+plotly==4.9.0
+scikit-learn==0.23.2
