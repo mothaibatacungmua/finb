@@ -6,6 +6,7 @@ from dash.dependencies import Input, Output, State
 from finb.analyzer.ui.tabs import TABS_DICT
 from finb.analyzer.ui.app import application
 
+
 def generate_layout():
   layout = dbc.Container([
     html.Div([
@@ -13,7 +14,9 @@ def generate_layout():
         id='analyzer-panel',
         options=[
           {'value': 'price_analyzer', 'label': 'Price'},
-          {'value': 'balance_sheet_analyzer', 'label': 'Balance Sheet'}
+          {'value': 'balance_sheet_analyzer', 'label': 'Balance Sheet'},
+          {'value': 'income_statement_analyzer', 'label': 'Income Statement'},
+          {'value': 'cashflow_analyzer', 'label': 'Cashflow'}
         ],
         value=[],
         multi=True

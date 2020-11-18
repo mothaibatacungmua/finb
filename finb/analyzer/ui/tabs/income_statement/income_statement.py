@@ -11,17 +11,17 @@ from dash.dependencies import Input, Output, MATCH, State
 import dash_table as dtb
 from dash.exceptions import PreventUpdate
 
-from finb.utils.datahub import read_balance_sheet_with_year_range
+from finb.utils.datahub import read_income_statement_with_year_range
 from finb.analyzer.ui.tabs.common import companies_df, list_symbols, industries, CACHING_PATH
 
-card_name = "balance-sheet"
+card_name = "income-statement"
 def render():
   global prev_symbols, view_mode
   view_mode.clear()
   prev_symbols = []
 
   content = dbc.Container([
-    dbc.Row(html.H5(["Balance Sheet Analysis"])),
+    dbc.Row(html.H5(["Income Statement Analysis"])),
     dbc.Row([
       dcc.Dropdown(
         id=f'{card_name}-sectors',
@@ -74,8 +74,8 @@ def filter_symbols_by_sector(sector):
      Output(f"{card_name}-tab-content", "children")],
     [Input(f"{card_name}-symbols", "value"),
      Input(f"{card_name}-tabs", "active_tab")],
-    [State(f"{card_name}-tabs", "children"),
-    State(f"{card_name}-tabs", "active_tab")]
+  [State(f"{card_name}-tabs", "children"),
+   State(f"{card_name}-tabs", "active_tab")]
 )
 def render_by_symbol(symbols, iat, children, sat):
   global prev_symbols, view_mode
@@ -110,7 +110,7 @@ def render_by_symbol(symbols, iat, children, sat):
     if len(adding_symbol) == 1:
       adding_symbol = adding_symbol[0]
       tab_children.append(dbc.Tab(label="%s" % adding_symbol, tab_id=f"{adding_symbol}_{card_name}"))
-      view_mode[adding_symbol] = draw_balance_sheet(adding_symbol, "raw")[0]
+      view_mode[adding_symbol] = draw_income_statement(adding_symbol, "raw")[0]
       if sat is not None:
         symbol = sat.split("_")[0]
         if symbol in view_mode:
@@ -124,13 +124,13 @@ def render_by_symbol(symbols, iat, children, sat):
   raise PreventUpdate
 
 
-def draw_balance_sheet(symbol, format="raw"):
+def draw_income_statement(symbol, format="raw"):
   raw_df = None
   percent_df = None
   index = list_symbols.index(symbol)
   current_year = datetime.datetime.now().year
-  raw_cache_path = os.path.join(CACHING_PATH, symbol, "raw_balance_sheet.csv")
-  percent_cache_path = os.path.join(CACHING_PATH, symbol, "percent_balance_sheet.csv")
+  raw_cache_path = os.path.join(CACHING_PATH, symbol, "raw_income_statement.csv")
+  percent_cache_path = os.path.join(CACHING_PATH, symbol, "percent_income_statement.csv")
 
   if not os.path.exists(os.path.join(CACHING_PATH, symbol)):
     os.makedirs(os.path.join(CACHING_PATH, symbol))
@@ -143,18 +143,19 @@ def draw_balance_sheet(symbol, format="raw"):
     percent_df.set_index("fields", inplace=True)
 
   if raw_df is None or percent_df is None:
-    raw_df, percent_df = read_balance_sheet_with_year_range(symbol, current_year - 5, current_year, "both")
+    raw_df, percent_df = read_income_statement_with_year_range(symbol, current_year - 5, current_year, "both")
 
     raw_df.to_csv(raw_cache_path)
     percent_df.to_csv(percent_cache_path)
 
+  # print(raw_df)
   quarter_cols = raw_df.columns.tolist()
 
   if format == "raw":
     columns = [{"name": "fields", "id": "fields", "type": "text"}] + \
-      [{"name": i, "id": i,
-        'type': 'numeric',
-        "format": Format(scheme=Scheme.fixed, group=',', precision=0)} for i in raw_df.columns]
+              [{"name": i, "id": i,
+                'type': 'numeric',
+                "format": Format(scheme=Scheme.fixed, group=',', precision=0)} for i in raw_df.columns]
     data = raw_df.to_dict("records")
   else:
     columns = [{"name": "fields", "id": "fields", "type": "text"}] + \
@@ -165,7 +166,7 @@ def draw_balance_sheet(symbol, format="raw"):
 
   for f, r in zip(raw_df.index.tolist(), data):
     r["fields"] = f
-  balance_sheet_table = html.Div([
+  income_statement_table = html.Div([
     dbc.DropdownMenu([
       dbc.DropdownMenuItem("Raw", id={'type': f'dynamic-{card_name}-view-raw', 'index': index}),
       dbc.DropdownMenuItem("Percent", id={'type': f'dynamic-{card_name}-view-percent', 'index': index})
@@ -190,12 +191,7 @@ def draw_balance_sheet(symbol, format="raw"):
       },
       style_cell={"marginLeft": "0px"},
       style_data_conditional=[
-        {'if': {'row_index': [1, 26, 55, 57, 87, 109]}, 'fontWeight': 'bold'},
-        {'if': {'row_index': [0, 56]}, 'fontWeight': 'bold', 'color': 'red'},
-        {'if': {'row_index': [2, 5, 9, 17, 20, 27, 34, 40, 41, 44, 50, 54, 58, 74, 88, 105]},
-         'fontWeight': 'bold', 'color': 'blue'},
-        {'if': {'column_id': 'fields', 'row_index': [2, 5, 9, 17, 20, 27, 34, 40, 41, 44, 50, 54, 58, 74, 88, 105]},
-         'backgroundColor': 'rgb(230,230,230)'}],
+        {'if': {'row_index': [0, 21]}, 'fontWeight': 'bold'}],
       fixed_columns={'headers': True, 'data': 1},
       fixed_rows={'headers': True, 'data': 0},
       css=[{'selector': '.row', 'rule': 'margin: 0;flex-wrap: nowrap'}],
@@ -204,7 +200,8 @@ def draw_balance_sheet(symbol, format="raw"):
     html.Div(children="", style={'paddingBottom': '50px'}),
   ])
 
-  return balance_sheet_table, columns, data
+  return income_statement_table, columns, data
+
 
 @application.callback(
     [Output({'type': f'dynamic-{card_name}', 'index': MATCH}, 'columns'),
@@ -213,16 +210,16 @@ def draw_balance_sheet(symbol, format="raw"):
      Input({'type': f'dynamic-{card_name}-view-percent', 'index':MATCH}, 'n_clicks')],
      State(f"{card_name}-tabs", "active_tab")
 )
-def view_mode_balance_sheet(raw_click, percent_click, at):
+def view_mode_income_statement(raw_click, percent_click, at):
   global view_mode
   if at is not None:
     symbol = at.split("_")[0]
     if raw_click is not None:
-      table, columns, data = draw_balance_sheet(symbol, "raw")
+      table, columns, data = draw_income_statement(symbol, "raw")
       view_mode[symbol] = table
       return columns, data
     if percent_click is not None:
-      table, columns, data = draw_balance_sheet(symbol, "percent")
+      table, columns, data = draw_income_statement(symbol, "percent")
       view_mode[symbol] = table
       return columns, data
 

@@ -5,21 +5,23 @@ import dash
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
+from finb.analyzer.ui.app import application
+from dash_table.Format import Format, Scheme
 from dash.dependencies import Input, Output, MATCH, State
+import dash_table as dtb
 from dash.exceptions import PreventUpdate
 
+from finb.utils.datahub import read_cashflow_by_year_range
 from finb.analyzer.ui.tabs.common import companies_df, list_symbols, industries, CACHING_PATH
-from finb.analyzer.ui.app import application
-from finb.utils.visualize import generate_price_chart
-from finb.utils.datahub import read_price_df
 
-
-card_name = "price-history"
+card_name = "cashflow"
 def render():
-  global view_mode
+  global prev_symbols, view_mode
   view_mode.clear()
+  prev_symbols = []
+
   content = dbc.Container([
-    dbc.Row(html.H5(["Price History"])),
+    dbc.Row(html.H5(["Cashflow Analysis"])),
     dbc.Row([
       dcc.Dropdown(
         id=f'{card_name}-sectors',
@@ -46,6 +48,10 @@ def render():
 
   return content
 
+
+prev_symbols = []
+view_mode = dict()
+
 @application.callback(
     Output(f"{card_name}-symbols", "options"),
     [Input(f"{card_name}-sectors", "value")]
@@ -63,16 +69,13 @@ def filter_symbols_by_sector(sector):
   return [{'label': s, 'value': s} for s in x]
 
 
-view_mode = dict()
-prev_symbols = []
-
 @application.callback(
     [Output(f"{card_name}-tabs", "children"),
      Output(f"{card_name}-tab-content", "children")],
     [Input(f"{card_name}-symbols", "value"),
      Input(f"{card_name}-tabs", "active_tab")],
-  [State(f"{card_name}-tabs", "children"),
-   State(f"{card_name}-tabs", "active_tab")]
+    [State(f"{card_name}-tabs", "children"),
+    State(f"{card_name}-tabs", "active_tab")]
 )
 def render_by_symbol(symbols, iat, children, sat):
   global prev_symbols, view_mode
@@ -99,15 +102,15 @@ def render_by_symbol(symbols, iat, children, sat):
       removing_symbol = removing_symbol[0]
       removing_index = prev_symbols.index(removing_symbol)
       tab_children.pop(removing_index)
-      view_mode.pop(removing_symbol)
       if sat is not None:
         symbol = sat.split("_")[0]
         if symbol != removing_symbol:
           tab_content = [view_mode[symbol]]
+      view_mode.pop(removing_symbol)
     if len(adding_symbol) == 1:
       adding_symbol = adding_symbol[0]
       tab_children.append(dbc.Tab(label="%s" % adding_symbol, tab_id=f"{adding_symbol}_{card_name}"))
-      view_mode[adding_symbol] = draw_price_history(adding_symbol)
+      view_mode[adding_symbol] = draw_cashflow(adding_symbol)[0]
       if sat is not None:
         symbol = sat.split("_")[0]
         if symbol in view_mode:
@@ -121,18 +124,69 @@ def render_by_symbol(symbols, iat, children, sat):
   raise PreventUpdate
 
 
-def draw_price_history(symbol):
+def draw_cashflow(symbol):
+  raw_df = None
+  index = list_symbols.index(symbol)
   current_year = datetime.datetime.now().year
-  start_date = "%d-01-01" % (current_year - 5)
-  price_df = read_price_df(symbol)
-  price_df = price_df.loc[start_date:]
-  company_info = companies_df.loc[symbol]
+  raw_cache_path = os.path.join(CACHING_PATH, symbol, "cashflow.csv")
 
-  return html.Div(children=[
-                    html.H3(children=company_info.companyName + f" ({company_info.floor}:{symbol})", style={'textAlign': 'center'}),
-                    dcc.Graph(
-                        id=symbol + "-price-graph",
-                        figure=generate_price_chart(price_df, show_volume=True),
-                        style={"max-height": 900}
-                    )
-                ])
+  if not os.path.exists(os.path.join(CACHING_PATH, symbol)):
+    os.makedirs(os.path.join(CACHING_PATH, symbol))
+
+  if os.path.exists(raw_cache_path):
+    raw_df = pd.read_csv(raw_cache_path)
+    raw_df.set_index("fields", inplace=True)
+
+  if raw_df is None:
+    raw_df = read_cashflow_by_year_range(symbol, current_year - 5, current_year)
+
+    raw_df.to_csv(raw_cache_path)
+
+  quarter_cols = raw_df.columns.tolist()
+
+  columns = [{"name": "fields", "id": "fields", "type": "text"}] + \
+    [{"name": i, "id": i,
+      'type': 'numeric',
+      "format": Format(scheme=Scheme.fixed, group=',', precision=0)} for i in raw_df.columns]
+  data = raw_df.to_dict("records")
+
+  for f, r in zip(raw_df.index.tolist(), data):
+    r["fields"] = f
+
+  cashflow_table = html.Div([
+    dtb.DataTable(
+      id={
+        'type': f'dynamic-{card_name}',
+        'index': index
+      },
+      columns=columns,
+      data=data,
+      style_cell_conditional=[
+        {'if': {'column_id': "fields"},
+         'textAlign': 'left', 'maxWidth': '350px'},
+        {'if': {'column_id': quarter_cols},
+         'minWidth': '150px'}
+      ],
+      style_table={'overflowX': 'scroll', 'overflowY': 'scroll', 'height': '700px', 'minWidth': '100%'},
+      style_header={
+        'backgroundColor': 'rgb(230,230,230)',
+        'fontWeight': 'bold'
+      },
+      style_cell={"marginLeft": "0px", 'whiteSpace': 'normal',
+        'height': 'auto'},
+      style_data_conditional=[
+        {'if': {'row_index': [0, 25, 51, 53]}, 'fontWeight': 'bold'},
+        {'if': {'row_index': [24, 37, 49, 50]}, 'fontWeight': 'bold', 'color': 'red'},
+        {'if': {'row_index': [1, 2, 14, 38]},
+         'fontWeight': 'bold', 'color': 'blue'},
+        {'if': {'column_id': 'fields', 'row_index': [1, 2, 14, 38]},
+         'backgroundColor': 'rgb(230,230,230)'}],
+      fixed_columns={'headers': True, 'data': 1},
+      fixed_rows={'headers': True, 'data': 0},
+      css=[{'selector': '.row', 'rule': 'margin: 0;flex-wrap: nowrap'}],
+
+    ),
+    html.Div(children="", style={'paddingBottom': '50px'}),
+  ])
+
+  return cashflow_table, columns, data

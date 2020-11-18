@@ -181,15 +181,15 @@ def read_balance_sheet_with_year_range(symbol, from_year, to_year, format="raw")
 		return ret_raw_df
 
 	def concat_percent_df():
-		ret_raw_df = pd.DataFrame()
-		ret_raw_df["fields"] = index
+		ret_percent_df = pd.DataFrame()
+		ret_percent_df["fields"] = index
 		for q, df in list_percent_df:
 			if df is not None:
-				ret_raw_df[q] = df["values"].tolist()
+				ret_percent_df[q] = df["values"].tolist()
 			else:
-				ret_raw_df[q] = ""
-		ret_raw_df.set_index("fields", inplace=True)
-		return ret_raw_df
+				ret_percent_df[q] = ""
+		ret_percent_df.set_index("fields", inplace=True)
+		return ret_percent_df
 
 	if format == "raw":
 		return concat_raw_df()
@@ -238,8 +238,11 @@ def read_income_statement(symbol, year, quarter, format="raw"):
 		return df, percent_df
 	except Exception as e:
 		print("[read_income_statement] Warning ", str(e))
+		if format == "both":
+			return None, None
 
 	return None
+
 
 def read_income_statement_with_year_range(symbol, from_year, to_year, format="raw"):
 	list_raw_df = []
@@ -270,20 +273,22 @@ def read_income_statement_with_year_range(symbol, from_year, to_year, format="ra
 		ret_raw_df["fields"] = index
 		for (q, df) in list_raw_df:
 			if df is not None:
-				ret_raw_df[q] = df["values"]
+				ret_raw_df[q] = df["values"].tolist()
 			else:
 				ret_raw_df[q] = ""
+		ret_raw_df.set_index("fields", inplace=True)
 		return ret_raw_df
 
 	def concat_percent_df():
-		ret_raw_df = pd.DataFrame()
-		ret_raw_df["fields"] = index
-		for q, df in list_raw_df:
+		ret_percent_df = pd.DataFrame()
+		ret_percent_df["fields"] = index
+		for q, df in list_percent_df:
 			if df is not None:
-				ret_raw_df[q] = df["values"]
+				ret_percent_df[q] = df["values"].tolist()
 			else:
-				ret_raw_df[q] = ""
-		return ret_raw_df
+				ret_percent_df[q] = ""
+		ret_percent_df.set_index("fields", inplace=True)
+		return ret_percent_df
 
 	if format == "raw":
 		return concat_raw_df()
@@ -325,6 +330,30 @@ def read_cashflow(symbol, year, quarter):
 		print("[read_cashflow] Warning ", str(e))
 
 	return None
+
+
+def read_cashflow_by_year_range(symbol, from_year, to_year):
+	list_raw_df = []
+	index = None
+	for y in range(from_year, to_year + 1):
+		for q in range(1, 5):
+			df = read_cashflow(symbol, year=y, quarter=q)
+			list_raw_df.append((f"{y}-Q{q}", df))
+			if df is not None and index is None:
+				index = df.index
+
+	def concat_raw_df():
+		ret_raw_df = pd.DataFrame()
+		ret_raw_df["fields"] = index
+		for (q, df) in list_raw_df:
+			if df is not None:
+				ret_raw_df[q] = df["values"].tolist()
+			else:
+				ret_raw_df[q] = ""
+		ret_raw_df.set_index("fields", inplace=True)
+		return ret_raw_df
+
+	return concat_raw_df()
 
 
 def read_financial_indicators(symbol, year, quarter):
