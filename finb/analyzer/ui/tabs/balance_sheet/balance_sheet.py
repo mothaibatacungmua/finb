@@ -7,13 +7,14 @@ import dash_core_components as dcc
 import dash_html_components as html
 from finb.analyzer.ui.app import application
 from dash_table.Format import Format, Scheme
-from finb.utils.datahub import read_balance_sheet_with_year_range
-from finb.analyzer.ui.tabs.common import companies_df, list_symbols, industries, CACHING_PATH
 from dash.dependencies import Input, Output, MATCH, State
 import dash_table as dtb
 from dash.exceptions import PreventUpdate
 
+from finb.utils.datahub import read_balance_sheet_with_year_range
+from finb.analyzer.ui.tabs.common import companies_df, list_symbols, industries, CACHING_PATH
 
+card_name = "balance-sheet"
 def render():
   global prev_symbols, view_mode
   view_mode.clear()
@@ -23,7 +24,7 @@ def render():
     dbc.Row(html.H5(["Balance Sheet Analysis"])),
     dbc.Row([
       dcc.Dropdown(
-        id='balance-sheet-sectors',
+        id=f'{card_name}-sectors',
         options=[{'label': s, 'value': s}
                  for s in industries],
         value="Tất cả",
@@ -32,7 +33,7 @@ def render():
     ]),
     dbc.Row([
       dcc.Dropdown(
-        id='balance-sheet-symbols',
+        id=f'{card_name}-symbols',
         options=[{'label': s, 'value': s}
                  for s in list_symbols],
         value=[],
@@ -40,8 +41,8 @@ def render():
         style = {"width": "100%"}
       )
     ]),
-    dbc.Tabs(id="balance-sheet-tabs"),
-    html.Div(id="balance-sheet-tab-content", className="p-4"),
+    dbc.Tabs(id=f"{card_name}-tabs"),
+    html.Div(id=f"{card_name}-tab-content", className="p-4"),
   ], style={"max-width": "1600px"})
 
 
@@ -52,8 +53,8 @@ prev_symbols = []
 view_mode = dict()
 
 @application.callback(
-    Output("balance-sheet-symbols", "options"),
-    [Input("balance-sheet-sectors", "value")]
+    Output(f"{card_name}-symbols", "options"),
+    [Input(f"{card_name}-sectors", "value")]
 )
 def filter_symbols_by_sector(sector):
   if sector is None:
@@ -69,14 +70,14 @@ def filter_symbols_by_sector(sector):
 
 
 @application.callback(
-    [Output("balance-sheet-tabs", "children"),
-     Output("balance-sheet-tab-content", "children")],
-    [Input("balance-sheet-symbols", "value"),
-     Input("balance-sheet-tabs", "active_tab")],
-    State("balance-sheet-tabs", "children")
+    [Output(f"{card_name}-tabs", "children"),
+     Output(f"{card_name}-tab-content", "children")],
+    [Input(f"{card_name}-symbols", "value"),
+     Input(f"{card_name}-tabs", "active_tab")],
+    State(f"{card_name}-tabs", "children")
 )
 def render_by_symbol(symbols, iat, children):
-  global prev_symbols
+  global prev_symbols, view_mode
   ctx = dash.callback_context
 
   if not ctx.triggered:
@@ -90,7 +91,7 @@ def render_by_symbol(symbols, iat, children):
   else:
     tab_children = children
 
-  if button_id == "balance-sheet-symbols":
+  if button_id == f"{card_name}-symbols":
     input_symbols = set(symbols)
     z = set(prev_symbols)
     removing_symbol = list(z.difference(input_symbols))
@@ -104,12 +105,12 @@ def render_by_symbol(symbols, iat, children):
       view_mode.pop(removing_symbol)
     if len(adding_symbol) == 1:
       adding_symbol = adding_symbol[0]
-      tab_children.append(dbc.Tab(label="%s" % adding_symbol, tab_id="%s_balance-sheet" % adding_symbol))
+      tab_children.append(dbc.Tab(label="%s" % adding_symbol, tab_id=f"{adding_symbol}_{card_name}"))
       view_mode[adding_symbol] = draw_balance_sheet(adding_symbol, "raw")[0]
     prev_symbols = symbols
 
     return tab_children, tab_content
-  elif button_id == "balance-sheet-tabs":
+  elif button_id == f"{card_name}-tabs":
     symbol = iat.split("_")[0]
     return tab_children, view_mode[symbol]
   raise PreventUpdate
@@ -158,8 +159,8 @@ def draw_balance_sheet(symbol, format="raw"):
     r["fields"] = f
   balance_sheet_table = html.Div([
     dbc.DropdownMenu([
-      dbc.DropdownMenuItem("Raw", id={'type': 'dynamic-balance-sheet-view-raw', 'index': index}),
-      dbc.DropdownMenuItem("Percent", id={'type': 'dynamic-balance-sheet-view-percent', 'index': index})
+      dbc.DropdownMenuItem("Raw", id={'type': f'dynamic-{card_name}-view-raw', 'index': index}),
+      dbc.DropdownMenuItem("Percent", id={'type': f'dynamic-{card_name}-view-percent', 'index': index})
     ], label="View"),
     dtb.DataTable(
       id={
@@ -198,11 +199,11 @@ def draw_balance_sheet(symbol, format="raw"):
   return balance_sheet_table, columns, data
 
 @application.callback(
-    [Output({'type': 'dynamic-balance-sheet', 'index': MATCH}, 'columns'),
-     Output({'type': 'dynamic-balance-sheet', 'index': MATCH}, 'data')],
-    [Input({'type': 'dynamic-balance-sheet-view-raw', 'index':MATCH}, 'n_clicks'),
-     Input({'type': 'dynamic-balance-sheet-view-percent', 'index':MATCH}, 'n_clicks')],
-     State("balance-sheet-tabs", "active_tab")
+    [Output({'type': f'dynamic-{card_name}', 'index': MATCH}, 'columns'),
+     Output({'type': f'dynamic-{card_name}', 'index': MATCH}, 'data')],
+    [Input({'type': f'dynamic-{card_name}-view-raw', 'index':MATCH}, 'n_clicks'),
+     Input({'type': f'dynamic-{card_name}-view-percent', 'index':MATCH}, 'n_clicks')],
+     State(f"{card_name}-tabs", "active_tab")
 )
 def view_mode_balance_sheet(raw_click, percent_click, at):
   global view_mode
