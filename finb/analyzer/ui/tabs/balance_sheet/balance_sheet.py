@@ -1,6 +1,7 @@
 import os
 import datetime
 import pandas as pd
+import dash
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
@@ -14,8 +15,9 @@ from dash.exceptions import PreventUpdate
 
 
 def render():
-  global balance_sheet_cache
-  balance_sheet_cache.clear()
+  global prev_symbols, view_mode
+  view_mode.clear()
+  prev_symbols = []
 
   content = dbc.Container([
     dbc.Row(html.H5(["Balance Sheet Analysis"])),
@@ -46,58 +48,74 @@ def render():
   return content
 
 
-prev_tickers = []
+prev_symbols = []
+view_mode = dict()
 
 @application.callback(
-    Output("balance-sheet-tabs", "children"),
-    [Input("balance-sheet-symbols", "value")],
-    [State("balance-sheet-tabs", "children")]
+    Output("balance-sheet-symbols", "options"),
+    [Input("balance-sheet-sectors", "value")]
 )
-def render_by_symbol(tickers, children):
-  global prev_tickers
-  input_tickers = set(tickers)
-  z = set(prev_tickers)
-  removing_tickers = z.difference(input_tickers)
-  adding_tickers = input_tickers.difference(z)
+def filter_symbols_by_sector(sector):
+  if sector is None:
+    raise PreventUpdate
 
+  if sector == "Tất cả":
+    return [{'label': s, 'value': s} for s in list_symbols]
+  df = companies_df[companies_df["industryName"] == sector]
+
+  x = df.index.tolist()
+  x.sort()
+  return [{'label': s, 'value': s} for s in x]
+
+
+@application.callback(
+    [Output("balance-sheet-tabs", "children"),
+     Output("balance-sheet-tab-content", "children")],
+    [Input("balance-sheet-symbols", "value"),
+     Input("balance-sheet-tabs", "active_tab")],
+    State("balance-sheet-tabs", "children")
+)
+def render_by_symbol(symbols, iat, children):
+  global prev_symbols
+  ctx = dash.callback_context
+
+  if not ctx.triggered:
+    button_id = 'No clicks yet'
+  else:
+    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+  tab_content = []
   if children is None:
     tab_children = []
   else:
     tab_children = children
 
-  removing_indices = []
-  for az in removing_tickers:
-    removing_indices.append(prev_tickers.index(az))
-  removing_indices.sort(reverse=True)
-  for rmi in removing_indices:
-    tab_children.pop(rmi)
-
-  adding_indices = []
-  for az in adding_tickers:
-    adding_indices.append(tickers.index(az))
-  adding_indices.sort(reverse=True)
-
-  for adi in adding_indices:
-    ticker = tickers[adi]
-    tab_children.append(dbc.Tab(label="%s"%ticker, tab_id="%s_balance-sheet" % ticker))
-
-  prev_tickers = tickers
-  return tab_children
+  if button_id == "balance-sheet-symbols":
+    input_symbols = set(symbols)
+    z = set(prev_symbols)
+    removing_symbol = list(z.difference(input_symbols))
+    adding_symbol = list(input_symbols.difference(z))
 
 
-@application.callback(Output("balance-sheet-tab-content", "children"), [Input("balance-sheet-tabs", "active_tab")])
-def switch_tab(at):
-  if at is None:
-    raise PreventUpdate
-  symbol = at.split("_")[0]
-  return draw_balance_sheet(symbol)
+    if len(removing_symbol) == 1:
+      removing_symbol = removing_symbol[0]
+      removing_index = prev_symbols.index(removing_symbol)
+      tab_children.pop(removing_index)
+      view_mode.pop(removing_symbol)
+    if len(adding_symbol) == 1:
+      adding_symbol = adding_symbol[0]
+      tab_children.append(dbc.Tab(label="%s" % adding_symbol, tab_id="%s_balance-sheet" % adding_symbol))
+      view_mode[adding_symbol] = draw_balance_sheet(adding_symbol, "raw")[0]
+    prev_symbols = symbols
 
+    return tab_children, tab_content
+  elif button_id == "balance-sheet-tabs":
+    symbol = iat.split("_")[0]
+    return tab_children, view_mode[symbol]
+  raise PreventUpdate
 
-balance_sheet_cache = dict()
 
 def draw_balance_sheet(symbol, format="raw"):
-  global balance_sheet_cache
-
   raw_df = None
   percent_df = None
   index = list_symbols.index(symbol)
@@ -105,18 +123,15 @@ def draw_balance_sheet(symbol, format="raw"):
   raw_cache_path = os.path.join(CACHING_PATH, symbol, "raw_balance_sheet.csv")
   percent_cache_path = os.path.join(CACHING_PATH, symbol, "percent_balance_sheet.csv")
 
-  if not symbol in balance_sheet_cache:
-    if not os.path.exists(os.path.join(CACHING_PATH, symbol)):
-      os.makedirs(os.path.join(CACHING_PATH, symbol))
+  if not os.path.exists(os.path.join(CACHING_PATH, symbol)):
+    os.makedirs(os.path.join(CACHING_PATH, symbol))
 
-    if os.path.exists(raw_cache_path):
-      raw_df = pd.read_csv(raw_cache_path)
-      raw_df.set_index("fields", inplace=True)
-    if os.path.exists(percent_cache_path):
-      percent_df = pd.read_csv(percent_cache_path)
-      percent_df.set_index("fields", inplace=True)
-  else:
-    raw_df, percent_df = balance_sheet_cache[symbol]
+  if os.path.exists(raw_cache_path):
+    raw_df = pd.read_csv(raw_cache_path)
+    raw_df.set_index("fields", inplace=True)
+  if os.path.exists(percent_cache_path):
+    percent_df = pd.read_csv(percent_cache_path)
+    percent_df.set_index("fields", inplace=True)
 
   if raw_df is None or percent_df is None:
     raw_df, percent_df = read_balance_sheet_with_year_range(symbol, current_year - 5, current_year, "both")
@@ -124,9 +139,7 @@ def draw_balance_sheet(symbol, format="raw"):
     raw_df.to_csv(raw_cache_path)
     percent_df.to_csv(percent_cache_path)
 
-  balance_sheet_cache[symbol] = (raw_df, percent_df)
   quarter_cols = raw_df.columns.tolist()
-  company_info = companies_df.loc[symbol]
 
   if format == "raw":
     columns = [{"name": "fields", "id": "fields", "type": "text"}] + \
@@ -144,7 +157,6 @@ def draw_balance_sheet(symbol, format="raw"):
   for f, r in zip(raw_df.index.tolist(), data):
     r["fields"] = f
   balance_sheet_table = html.Div([
-    dbc.Row(html.H5("Bảng Cân Đối Kế Toán", style={'textAlign': 'left', 'paddingLeft': '15px'})),
     dbc.DropdownMenu([
       dbc.DropdownMenuItem("Raw", id={'type': 'dynamic-balance-sheet-view-raw', 'index': index}),
       dbc.DropdownMenuItem("Percent", id={'type': 'dynamic-balance-sheet-view-percent', 'index': index})
@@ -183,39 +195,26 @@ def draw_balance_sheet(symbol, format="raw"):
     html.Div(children="", style={'paddingBottom': '50px'}),
   ])
 
-  return balance_sheet_table
-
+  return balance_sheet_table, columns, data
 
 @application.callback(
-    [Output({'type': 'dynamic-balance-sheet', 'index': MATCH}, 'columns'), Output({'type': 'dynamic-balance-sheet', 'index': MATCH}, 'data')],
+    [Output({'type': 'dynamic-balance-sheet', 'index': MATCH}, 'columns'),
+     Output({'type': 'dynamic-balance-sheet', 'index': MATCH}, 'data')],
     [Input({'type': 'dynamic-balance-sheet-view-raw', 'index':MATCH}, 'n_clicks'),
      Input({'type': 'dynamic-balance-sheet-view-percent', 'index':MATCH}, 'n_clicks')],
      State("balance-sheet-tabs", "active_tab")
 )
 def view_mode_balance_sheet(raw_click, percent_click, at):
+  global view_mode
   if at is not None:
     symbol = at.split("_")[0]
     if raw_click is not None:
-      raw_df, percent_df = balance_sheet_cache[symbol]
-
-      columns = [{"name": "fields", "id": "fields", "type": "text"}] + \
-                [{"name": i, "id": i,
-                  'type': 'numeric',
-                  "format": Format(scheme=Scheme.fixed, group=',', precision=0)} for i in raw_df.columns]
-      data = raw_df.to_dict("records")
-      for f, r in zip(percent_df.index.tolist(), data):
-          r["fields"] = f
+      table, columns, data = draw_balance_sheet(symbol, "raw")
+      view_mode[symbol] = table
       return columns, data
     if percent_click is not None:
-      raw_df, percent_df = balance_sheet_cache[symbol]
-
-      columns = [{"name": "fields", "id": "fields", "type": "text"}] + \
-                [{"name": i, "id": i,
-                  'type': 'numeric',
-                  "format": Format(scheme=Scheme.percentage, precision=2)} for i in percent_df.columns]
-      data = percent_df.to_dict("records")
-      for f, r in zip(percent_df.index.tolist(), data):
-        r["fields"] = f
+      table, columns, data = draw_balance_sheet(symbol, "percent")
+      view_mode[symbol] = table
       return columns, data
 
   raise PreventUpdate
