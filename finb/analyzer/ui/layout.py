@@ -16,7 +16,8 @@ def generate_layout():
           {'value': 'price_analyzer', 'label': 'Price'},
           {'value': 'balance_sheet_analyzer', 'label': 'Balance Sheet'},
           {'value': 'income_statement_analyzer', 'label': 'Income Statement'},
-          {'value': 'cashflow_analyzer', 'label': 'Cashflow'}
+          {'value': 'cashflow_analyzer', 'label': 'Cashflow'},
+          {'value': 'cogs_compare_analyzer', 'label': 'COGS compare'}
         ],
         value=[],
         multi=True

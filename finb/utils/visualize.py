@@ -7,6 +7,8 @@
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import matplotlib
+
 
 INCREASING_COLOR = 'green'
 DECREASING_COLOR = 'red'
@@ -103,28 +105,32 @@ def generate_return_chart(df_returns, symbol=None):
     return fig
 
 
-def generate_balance_sheet_table_chart(df: pd.DataFrame, format="raw"):
+def generate_colors_pool():
+    hex_colors_only = []
+    for name, hex in matplotlib.colors.cnames.items():
+        hex_colors_only.append(hex)
+
+    return hex_colors_only
+
+
+def generate_comparing_chart(df: pd.DataFrame, title=None):
+    """
+
+    :param df: include columns as x, index as symbols, data as y
+    :return: go.Figure
+    """
+
+    symbols = df.index.tolist()
+    x = df.columns[:-1]
+
     fig = go.Figure()
-    values = [df.index.tolist()]
-    for c in df.columns[:10]:
-        values.append(df[c].tolist())
-
-    fig.add_trace(go.Table(
-        columnwidth=[200, 200],
-        header=dict(
-            values=["fields"] + df.columns.tolist()[:10],
-            line_color='darkslategray',
-            fill_color='royalblue',
-            align=['left','center'],
-            font=dict(color='white', size=12),
-            height=40),
-        cells=dict(
-            values=values,
-            height=40,
-            align=['left', 'center'])
-    ))
-
-    layout = go.Layout(width=1024)
-    fig.update_layout(layout)
-
+    for symbol in symbols:
+        fig.add_trace(go.Scatter(
+            x=x,
+            y=df.loc[symbol].values[:-1],
+            mode='lines+markers',
+            line=dict(color=df.loc[symbol]['color']),
+            name=symbol
+        ))
+    fig.update_layout(title=title, title_x=0.5)
     return fig

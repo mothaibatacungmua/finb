@@ -11,8 +11,8 @@ from dash.dependencies import Input, Output, MATCH, State
 import dash_table as dtb
 from dash.exceptions import PreventUpdate
 
-from finb.utils.datahub import read_income_statement_with_year_range
-from finb.analyzer.ui.tabs.common import companies_df, list_symbols, industries, CACHING_PATH
+from finb.analyzer.ui.tabs.common import \
+  companies_df, list_symbols, industries, read_income_statement_with_cache
 
 card_name = "income-statement"
 def render():
@@ -125,30 +125,9 @@ def render_by_symbol(symbols, iat, children, sat):
 
 
 def draw_income_statement(symbol, format="raw"):
-  raw_df = None
-  percent_df = None
   index = list_symbols.index(symbol)
-  current_year = datetime.datetime.now().year
-  raw_cache_path = os.path.join(CACHING_PATH, symbol, "raw_income_statement.csv")
-  percent_cache_path = os.path.join(CACHING_PATH, symbol, "percent_income_statement.csv")
+  raw_df, percent_df = read_income_statement_with_cache(symbol)
 
-  if not os.path.exists(os.path.join(CACHING_PATH, symbol)):
-    os.makedirs(os.path.join(CACHING_PATH, symbol))
-
-  if os.path.exists(raw_cache_path):
-    raw_df = pd.read_csv(raw_cache_path)
-    raw_df.set_index("fields", inplace=True)
-  if os.path.exists(percent_cache_path):
-    percent_df = pd.read_csv(percent_cache_path)
-    percent_df.set_index("fields", inplace=True)
-
-  if raw_df is None or percent_df is None:
-    raw_df, percent_df = read_income_statement_with_year_range(symbol, current_year - 5, current_year, "both")
-
-    raw_df.to_csv(raw_cache_path)
-    percent_df.to_csv(percent_cache_path)
-
-  # print(raw_df)
   quarter_cols = raw_df.columns.tolist()
 
   if format == "raw":
