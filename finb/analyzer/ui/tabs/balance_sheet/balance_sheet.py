@@ -38,7 +38,8 @@ def render():
                  for s in list_symbols],
         value=[],
         multi=True,
-        style = {"width": "100%"}
+        style = {"width": "100%"},
+        clearable=False
       )
     ]),
     dbc.Tabs(id=f"{card_name}-tabs"),

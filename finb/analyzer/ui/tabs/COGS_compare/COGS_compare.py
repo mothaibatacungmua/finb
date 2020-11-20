@@ -36,7 +36,8 @@ def render():
                  for s in list_symbols],
         value=[],
         multi=True,
-        style = {"width": "100%"}
+        style = {"width": "100%"},
+        clearable=False
       )
     ]),
     dbc.Row([
@@ -51,7 +52,7 @@ def render():
 
 @application.callback(
     Output(f"{card_name}-symbols", "options"),
-    [Input(f"{card_name}-sectors", "value")]
+    Input(f"{card_name}-sectors", "value")
 )
 def filter_symbols_by_sector(sector):
   if sector is None:
