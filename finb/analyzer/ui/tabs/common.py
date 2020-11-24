@@ -7,9 +7,10 @@ from finb.utils.visualize import generate_colors_pool
 from finb import PROJECT_PATH
 
 
-companies_df = read_considered_df()
+companies_df = read_considered_df().copy().sort_index()
 list_symbols = companies_df.index.tolist()
-list_symbols.sort()
+company_names = companies_df["companyName"].tolist()
+
 industries = ["Tất cả"] + list(companies_df["industryName"].unique())
 colors_pool = generate_colors_pool()
 
@@ -66,3 +67,59 @@ def read_income_statement_with_cache(symbol):
     percent_df.to_csv(percent_cache_path)
 
   return raw_df, percent_df
+
+import dash_bootstrap_components as dbc
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
+from dash.exceptions import PreventUpdate
+from finb.analyzer.ui.app import application
+
+def create_symbol_filter_box_func(title, card_name, content_components, initialize_func=None):
+  def render():
+    if initialize_func is not None:
+      initialize_func()
+    content = dbc.Container([
+      dbc.Row(html.H5([title])),
+      dbc.Row([
+        dcc.Dropdown(
+          id=f'{card_name}-sectors',
+          options=[{'label': s, 'value': s}
+                   for s in industries],
+          value="Tất cả",
+          style={"width": "100%"}
+        )
+      ]),
+      dbc.Row([
+        dcc.Dropdown(
+          id=f'{card_name}-symbols',
+          options=[{'label': f"{s}-{n}", 'value': n}
+                   for s, n in zip(list_symbols, company_names)],
+          value=[],
+          multi=True,
+          style={"width": "100%"},
+          clearable=False
+        )
+      ]),
+      *content_components
+    ], style={"max-width": "1600px"})
+
+    return content
+
+  @application.callback(
+    Output(f"{card_name}-symbols", "options"),
+    [Input(f"{card_name}-sectors", "value")]
+  )
+  def filter_symbols_by_sector(sector):
+    if sector is None:
+      raise PreventUpdate
+
+    if sector == "Tất cả":
+      return [{'label': f"{s}-{n}", 'value': s} for s, n in zip(list_symbols, company_names)]
+    df = companies_df[companies_df["industryName"] == sector].sort_index()
+
+    x = df.index.tolist()
+    name = df["companyName"].tolist()
+    return [{'label': f"{s}-{n}", 'value': n} for s, n in zip(x, name)]
+
+  return render, filter_symbols_by_sector

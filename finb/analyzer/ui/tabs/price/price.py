@@ -1,68 +1,30 @@
-import os
 import datetime
-import pandas as pd
 import dash
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output, MATCH, State
+from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 
-from finb.analyzer.ui.tabs.common import companies_df, list_symbols, industries, CACHING_PATH
+from finb.analyzer.ui.tabs.common import companies_df, create_symbol_filter_box_func
 from finb.analyzer.ui.app import application
 from finb.utils.visualize import generate_price_chart
 from finb.utils.datahub import read_price_df
 
 
 card_name = "price-history"
-def render():
-  global view_mode
+title = "Price History"
+content_components = [
+  dbc.Tabs(id=f"{card_name}-tabs"),
+  html.Div(id=f"{card_name}-tab-content", className="p-4")
+]
+
+def initialize():
+  global view_mode, prev_symbols
   view_mode.clear()
-  content = dbc.Container([
-    dbc.Row(html.H5(["Price History"])),
-    dbc.Row([
-      dcc.Dropdown(
-        id=f'{card_name}-sectors',
-        options=[{'label': s, 'value': s}
-                 for s in industries],
-        value="Tất cả",
-        style = {"width": "100%"}
-      )
-    ]),
-    dbc.Row([
-      dcc.Dropdown(
-        id=f'{card_name}-symbols',
-        options=[{'label': s, 'value': s}
-                 for s in list_symbols],
-        value=[],
-        multi=True,
-        style = {"width": "100%"},
-        clearable=False
-      )
-    ]),
-    dbc.Tabs(id=f"{card_name}-tabs"),
-    html.Div(id=f"{card_name}-tab-content", className="p-4"),
-  ], style={"max-width": "1600px"})
+  prev_symbols = []
 
-
-  return content
-
-@application.callback(
-    Output(f"{card_name}-symbols", "options"),
-    [Input(f"{card_name}-sectors", "value")]
-)
-def filter_symbols_by_sector(sector):
-  if sector is None:
-    raise PreventUpdate
-
-  if sector == "Tất cả":
-    return [{'label': s, 'value': s} for s in list_symbols]
-  df = companies_df[companies_df["industryName"] == sector]
-
-  x = df.index.tolist()
-  x.sort()
-  return [{'label': s, 'value': s} for s in x]
-
+render, filter_symbols_by_sector = create_symbol_filter_box_func(title, card_name, content_components, initialize)
 
 view_mode = dict()
 prev_symbols = []

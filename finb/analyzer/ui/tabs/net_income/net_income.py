@@ -11,8 +11,8 @@ from finb.analyzer.ui.tabs.common import \
   read_income_statement_with_cache, colors_pool, create_symbol_filter_box_func
 from finb.utils.visualize import generate_comparing_chart
 
-card_name = "cogs-compare"
-title = "COGS Compare"
+card_name = "net-income-compare"
+title = "Net Income Compare"
 content_components = [
   dbc.Row([
         html.Div(id=f"{card_name}-chart-raw", className="w-50 p-3"),
@@ -53,8 +53,8 @@ def draw_cogs_chart_by_symbols(symbols):
     if draw_percent_df is not None:
       draw_percent_df = draw_percent_df.drop(removing_symbol)
     prev_symbols = symbols
-    return [dcc.Graph(figure=generate_comparing_chart(draw_raw_df, title="COGS Raw"))], \
-           [dcc.Graph(figure=generate_comparing_chart(draw_percent_df, title="COGS over Revenue Percent"))]
+    return [dcc.Graph(figure=generate_comparing_chart(draw_raw_df, title="Net Income Raw"))], \
+           [dcc.Graph(figure=generate_comparing_chart(draw_percent_df, title="Net Income over Revenue Percent"))]
 
   elif len(adding_symbol) == 1:
     adding_symbol = adding_symbol[0]
@@ -65,11 +65,11 @@ def draw_cogs_chart_by_symbols(symbols):
     if draw_percent_df is None:
       draw_percent_df = pd.DataFrame(columns=percent_df.columns.tolist() + ["color"])
 
-    raw_s = raw_df.loc["4. Giá vốn hàng bán"]
+    raw_s = raw_df.loc["21. Lợi nhuận sau thuế của cổ đông của công ty mẹ (19)-(20)"]
     raw_s.name = adding_symbol
     draw_raw_df = draw_raw_df.append(raw_s)
 
-    persent_s = percent_df.loc["4. Giá vốn hàng bán"]
+    persent_s = percent_df.loc["21. Lợi nhuận sau thuế của cổ đông của công ty mẹ (19)-(20)"]
     persent_s.name = adding_symbol
     draw_percent_df = draw_percent_df.append(persent_s)
 
@@ -80,7 +80,7 @@ def draw_cogs_chart_by_symbols(symbols):
     draw_raw_df.loc[adding_symbol, 'color'] = rc
     draw_percent_df.loc[adding_symbol, 'color'] = rc
     prev_symbols = symbols
-    return [dcc.Graph(figure=generate_comparing_chart(draw_raw_df, title="COGS Raw"))], \
-           [dcc.Graph(figure=generate_comparing_chart(draw_percent_df, title="COGS over Revenue Percent"))]
+    return [dcc.Graph(figure=generate_comparing_chart(draw_raw_df, title="Net Income Raw"))], \
+           [dcc.Graph(figure=generate_comparing_chart(draw_percent_df, title="Net Income over Revenue Percent"))]
 
   raise PreventUpdate

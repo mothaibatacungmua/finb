@@ -8,6 +8,8 @@ from finb.analyzer.ui.app import application
 
 
 def generate_layout():
+  global  prev_analyzers
+  prev_analyzers = []
   layout = dbc.Container([
     html.Div([
       dcc.Dropdown(
@@ -17,7 +19,10 @@ def generate_layout():
           {'value': 'balance_sheet_analyzer', 'label': 'Balance Sheet'},
           {'value': 'income_statement_analyzer', 'label': 'Income Statement'},
           {'value': 'cashflow_analyzer', 'label': 'Cashflow'},
-          {'value': 'cogs_compare_analyzer', 'label': 'COGS compare'}
+          {'value': 'cogs_compare_analyzer', 'label': 'COGS compare'},
+          {'value': 'sga_compare_analyzer', 'label': 'SGA compare'},
+          {'value': 'revenue_analyzer', 'label': 'Revenue'},
+          {'value': 'net_income_analyzer', 'label': 'Net Income'}
         ],
         value=[],
         multi=True
@@ -55,7 +60,8 @@ def analyzer_content(analyzers, children):
     removing_indices.append(prev_analyzers.index(az))
   removing_indices.sort(reverse=True)
   for rmi in removing_indices:
-    children.pop(rmi)
+    if len(children) > rmi:
+      children.pop(rmi)
 
   adding_indices = []
   for az in adding_analyzers:
