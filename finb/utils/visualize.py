@@ -88,6 +88,8 @@ def generate_price_chart(df, type="candlestick", show_volume=True):
 def generate_return_chart(df_returns, symbol=None):
     x = df_returns.index
     y = df_returns["Return"].values
+
+    strftime = df_returns.index.strftime("%Y-%m-%d")
     colors = []
     for v in y:
         if v <= 0:
@@ -98,10 +100,10 @@ def generate_return_chart(df_returns, symbol=None):
     fig = go.Figure(data=[go.Bar(
         x=x,
         y=y,
-        marker_color=colors  # marker color can be a single color value or an iterable
+        marker_color=colors,  # marker color can be a single color value or an iterable
+        hovertext=strftime
     )])
-    if symbol is not None:
-        fig.update_layout(title_text=f'{symbol} Returns')
+
     return fig
 
 

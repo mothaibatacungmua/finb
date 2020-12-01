@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     end_date = datetime.now().strftime("%Y-%m-%d")
     df = get_history_price(
-        "C4G",
+        "SAM",
         _from=str_to_ts(start_date),
         to=str_to_ts(end_date))
 

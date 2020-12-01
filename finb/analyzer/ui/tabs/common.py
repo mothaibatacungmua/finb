@@ -75,8 +75,14 @@ from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 from finb.analyzer.ui.app import application
 
-def create_symbol_filter_box_func(title, card_name, content_components, initialize_func=None):
+def create_symbol_filter_box_func(title, card_name, content_components, initialize_func=None, include_vnindex=False, include_vn30=False):
   def render():
+    options = [{'label': f"{s}-{n}", 'value': s}
+               for s, n in zip(list_symbols, company_names)]
+    if include_vnindex:
+      options.append({'label': 'VNINDEX', 'value': 'VNINDEX'})
+    if include_vn30:
+      options.append({'label': 'VN30', 'value': 'VN30'})
     if initialize_func is not None:
       initialize_func()
     content = dbc.Container([
@@ -93,7 +99,7 @@ def create_symbol_filter_box_func(title, card_name, content_components, initiali
       dbc.Row([
         dcc.Dropdown(
           id=f'{card_name}-symbols',
-          options=[{'label': f"{s}-{n}", 'value': n}
+          options=[{'label': f"{s}-{n}", 'value': s}
                    for s, n in zip(list_symbols, company_names)],
           value=[],
           multi=True,
@@ -115,11 +121,17 @@ def create_symbol_filter_box_func(title, card_name, content_components, initiali
       raise PreventUpdate
 
     if sector == "Tất cả":
-      return [{'label': f"{s}-{n}", 'value': s} for s, n in zip(list_symbols, company_names)]
+      options = [{'label': f"{s}-{n}", 'value': s}
+                 for s, n in zip(list_symbols, company_names)]
+      if include_vnindex:
+        options.append({'label': 'VNINDEX', 'value': 'VNINDEX'})
+      if include_vn30:
+        options.append({'label': 'VN30', 'value': 'VN30'})
+      return options
     df = companies_df[companies_df["industryName"] == sector].sort_index()
 
     x = df.index.tolist()
     name = df["companyName"].tolist()
-    return [{'label': f"{s}-{n}", 'value': n} for s, n in zip(x, name)]
+    return [{'label': f"{s}-{n}", 'value': s} for s, n in zip(x, name)]
 
   return render, filter_symbols_by_sector

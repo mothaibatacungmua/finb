@@ -22,7 +22,8 @@ def generate_layout():
           {'value': 'cogs_compare_analyzer', 'label': 'COGS compare'},
           {'value': 'sga_compare_analyzer', 'label': 'SGA compare'},
           {'value': 'revenue_analyzer', 'label': 'Revenue'},
-          {'value': 'net_income_analyzer', 'label': 'Net Income'}
+          {'value': 'net_income_analyzer', 'label': 'Net Income'},
+          {'value': 'weekly_returns_analyzer', 'label': 'Returns'}
         ],
         value=[],
         multi=True
